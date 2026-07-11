@@ -12,7 +12,7 @@ class AppTheme {
   static const Color softCream = Color(0xFFF3E4C9);
   static const Color mutedSage = Color(0xFFD3D4C0);
   static const Color warmTerracotta = Color(0xFF8B5E3C);
-  
+
   static const Color textDark = Color(0xFF1A2530);
   static const Color textMuted = Color(0xFF627282);
 
@@ -40,15 +40,31 @@ class AppTheme {
         ),
       ),
       textTheme: const TextTheme(
-        headlineLarge: TextStyle(color: deepNavy, fontWeight: FontWeight.w800, fontSize: 32, letterSpacing: -0.5),
-        titleMedium: TextStyle(color: textDark, fontWeight: FontWeight.w700, fontSize: 18),
-        bodyLarge: TextStyle(color: textDark, fontSize: 16, fontWeight: FontWeight.w500),
+        headlineLarge: TextStyle(
+          color: deepNavy,
+          fontWeight: FontWeight.w800,
+          fontSize: 32,
+          letterSpacing: -0.5,
+        ),
+        titleMedium: TextStyle(
+          color: textDark,
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+        ),
+        bodyLarge: TextStyle(
+          color: textDark,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
         bodyMedium: TextStyle(color: textMuted, fontSize: 14),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.5),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        fillColor: Colors.white.withValues(alpha: 0.5),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: mutedSage, width: 1),
@@ -61,11 +77,15 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: deepNavy, width: 1.5),
         ),
-        hintStyle: const TextStyle(color: textMuted, fontSize: 14, fontWeight: FontWeight.w400),
+        hintStyle: const TextStyle(
+          color: textMuted,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
       ),
-// Look for this block around line 66 in your lib/main.dart
+      // Look for this block around line 66 in your lib/main.dart
       cardTheme: CardThemeData(
-        color: Colors.white.withOpacity(0.6),
+        color: Colors.white.withValues(alpha: 0.6),
         elevation: 0,
         margin: const EdgeInsets.symmetric(vertical: 6),
         shape: RoundedRectangleBorder(
@@ -76,7 +96,7 @@ class AppTheme {
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) return warmTerracotta;
-          return Colors.white.withOpacity(0.8);
+          return Colors.white.withValues(alpha: 0.8);
         }),
         side: const BorderSide(color: mutedSage, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -112,8 +132,11 @@ class InitialWorkspacePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppTheme.deepNavy,
         title: const Text(
-          'Trolley', 
-          style: TextStyle(color: AppTheme.softCream, fontWeight: FontWeight.w900)
+          'Trolley',
+          style: TextStyle(
+            color: AppTheme.softCream,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         actions: [
           IconButton(
@@ -129,7 +152,12 @@ class InitialWorkspacePage extends StatelessWidget {
           Container(
             width: double.infinity,
             color: AppTheme.deepNavy,
-            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 32, top: 8),
+            padding: const EdgeInsets.only(
+              left: 24,
+              right: 24,
+              bottom: 32,
+              top: 8,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -143,13 +171,14 @@ class InitialWorkspacePage extends StatelessWidget {
                 Text(
                   'Optimized aisle routing for Sri Lankan supermarkets.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.mutedSage, // Sage subtext on Navy background
+                    color:
+                        AppTheme.mutedSage, // Sage subtext on Navy background
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // 3. Main content body area (Soft Cream background)
           Expanded(
             child: Padding(
@@ -160,14 +189,21 @@ class InitialWorkspacePage extends StatelessWidget {
                   TextField(
                     decoration: InputDecoration(
                       hintText: 'Try adding "Parippu 1kg or Anchor powder"...',
-                      prefixIcon: Icon(Icons.add_shopping_cart_rounded, color: AppTheme.deepNavy),
+                      prefixIcon: Icon(
+                        Icons.add_shopping_cart_rounded,
+                        color: AppTheme.deepNavy,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   Text(
-                    'Active Shopping List', 
-                    style: TextStyle(color: AppTheme.deepNavy, fontWeight: FontWeight.bold, fontSize: 16)
+                    'Active Shopping List',
+                    style: TextStyle(
+                      color: AppTheme.deepNavy,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -176,7 +212,10 @@ class InitialWorkspacePage extends StatelessWidget {
                       leading: Checkbox(value: true, onChanged: (val) {}),
                       title: const Text('Keeri Samba Rice'),
                       subtitle: const Text('Grains & Staples'),
-                      trailing: Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
                   ),
                 ],
