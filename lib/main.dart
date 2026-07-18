@@ -215,12 +215,14 @@ class TrolleyProvider with ChangeNotifier {
   List<dynamic> _items = [];
   List<dynamic> _historyLists = [];
 
-  // Dynamic Catalog Architecture Engine Parameters
   List<dynamic> _dynamicCatalog = [];
   bool _isCatalogLoading = false;
 
   String _selectedSupermarket = 'GENERAL';
   bool _isLoading = false;
+
+  // NEW: List State Tracking
+  bool _isListFinalized = false;
 
   List<dynamic> get items => _items;
   List<dynamic> get historyLists => _historyLists;
@@ -228,6 +230,18 @@ class TrolleyProvider with ChangeNotifier {
   bool get isCatalogLoading => _isCatalogLoading;
   String get selectedSupermarket => _selectedSupermarket;
   bool get isLoading => _isLoading;
+  bool get isListFinalized => _isListFinalized; // Expose boolean tracking
+
+  // NEW: Presentation Action Methods
+  void finalizeList() {
+    _isListFinalized = true;
+    notifyListeners();
+  }
+
+  void editListDraft() {
+    _isListFinalized = false;
+    notifyListeners();
+  }
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
@@ -263,11 +277,10 @@ class TrolleyProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
-      fetchMarketplaceCatalog(); // Automatically trigger baseline catalog mapping alignment
+      fetchMarketplaceCatalog();
     }
   }
 
-  // Fetch store inventory configurations straight from backend AI / Database array rules
   Future<void> fetchMarketplaceCatalog() async {
     _isCatalogLoading = true;
     notifyListeners();
@@ -292,7 +305,9 @@ class TrolleyProvider with ChangeNotifier {
   Future<void> addGroceryItem(String text, String quantity) async {
     if (text.trim().isEmpty) return;
     _isLoading = true;
+    _isListFinalized = false; // NEW: Revert to draft layout mode on new add
     notifyListeners();
+
     try {
       final headers = await _getHeaders();
       final res = await http.post(
@@ -345,6 +360,7 @@ class TrolleyProvider with ChangeNotifier {
       );
       if (res.statusCode == 200) {
         _items = [];
+        _isListFinalized = false; // Reset to default clean state
         await fetchTrolleyHistory();
       }
     } catch (e) {
@@ -358,7 +374,7 @@ class TrolleyProvider with ChangeNotifier {
   void updateSupermarket(String? newStore) {
     if (newStore == null) return;
     _selectedSupermarket = newStore;
-    fetchMarketplaceCatalog(); // Automatically trigger live API pull on select update change
+    fetchMarketplaceCatalog();
     notifyListeners();
   }
 }
@@ -415,7 +431,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
 }
 
 // =========================================================================
-// EYE-CATCHING HOME MARKETPLACE TAB (DYNAMIC EXPLORER CANVAS LAYER)
+// EYE-CATCHING HOME MARKETPLACE TAB
 // =========================================================================
 class InitialWorkspacePage extends StatefulWidget {
   const InitialWorkspacePage({super.key});
@@ -428,36 +444,37 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
   final _itemController = TextEditingController();
   final _quantityController = TextEditingController(text: '1');
 
+  String _selectedUnitType = 'Packs';
   String _homeSubTab = 'catalog';
   String? _focusedAisleCategory;
 
   final List<Map<String, dynamic>> _popularSuggestions = [
-    {"name": "Keeri Samba Rice", "qty": "5kg", "icon": Icons.grain_rounded},
+    {"name": "Keeri Samba Rice", "qty": "5 kg", "icon": Icons.grain_rounded},
     {
       "name": "Maliban Biscuit Pack",
-      "qty": "2 packs",
+      "qty": "2 Packs",
       "icon": Icons.cookie_rounded,
     },
-    {"name": "Dhal (Parippu)", "qty": "1kg", "icon": Icons.radar_rounded},
+    {"name": "Dhal (Parippu)", "qty": "1 kg", "icon": Icons.radar_rounded},
     {
       "name": "Anchor Milk Powder",
-      "qty": "400g",
+      "qty": "1 Packs",
       "icon": Icons.water_drop_rounded,
     },
-    {"name": "Astra Margarine", "qty": "250g", "icon": Icons.layers_rounded},
+    {"name": "Astra Margarine", "qty": "1 Pcs", "icon": Icons.layers_rounded},
     {
       "name": "Pelwatte Butter",
-      "qty": "200g",
+      "qty": "1 Pcs",
       "icon": Icons.breakfast_dining_rounded,
     },
     {
       "name": "Ceylon Bread Loaf",
-      "qty": "1",
+      "qty": "1 Pcs",
       "icon": Icons.bakery_dining_rounded,
     },
     {
       "name": "Fresh Tomatoes",
-      "qty": "500g",
+      "qty": "500 g",
       "icon": Icons.fiber_manual_record_rounded,
     },
   ];
@@ -513,7 +530,8 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
           ],
         ),
         actions: [
-          if (trolley.items.isNotEmpty)
+          // IMPORTANT: Check Out button now ONLY appears once the user has finalized their sorted map list!
+          if (trolley.items.isNotEmpty && trolley.isListFinalized)
             Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: ElevatedButton.icon(
@@ -594,9 +612,7 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
                           .toList(),
                       onChanged: (val) {
                         trolley.updateSupermarket(val);
-                        setState(() {
-                          _focusedAisleCategory = null;
-                        });
+                        setState(() => _focusedAisleCategory = null);
                       },
                     ),
                   ),
@@ -604,16 +620,17 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
               ],
             ),
           ),
+
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
                 Expanded(
-                  flex: 4,
+                  flex: 3,
                   child: TextField(
                     controller: _itemController,
                     decoration: const InputDecoration(
-                      hintText: 'Enter item or select from modules below...',
+                      hintText: 'What are you tracking?',
                       prefixIcon: Icon(
                         Icons.search_rounded,
                         color: AppTheme.accentNeonGreen,
@@ -626,8 +643,46 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
                   flex: 1,
                   child: TextField(
                     controller: _quantityController,
+                    keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    decoration: const InputDecoration(hintText: 'Qty'),
+                    decoration: const InputDecoration(
+                      hintText: 'Qty',
+                      contentPadding: EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceCard,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedUnitType,
+                      dropdownColor: AppTheme.surfaceCard,
+                      style: const TextStyle(
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      items: ['Packs', 'Pcs', 'kg', 'g', 'ml', 'L']
+                          .map(
+                            (String unit) => DropdownMenuItem<String>(
+                              value: unit,
+                              child: Text(unit),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null)
+                          setState(() => _selectedUnitType = val);
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -636,11 +691,17 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
                       ? null
                       : () async {
                           if (_itemController.text.trim().isNotEmpty) {
+                            final operationalQty =
+                                "${_quantityController.text} $_selectedUnitType";
                             await trolley.addGroceryItem(
                               _itemController.text,
-                              _quantityController.text,
+                              operationalQty,
                             );
                             _itemController.clear();
+                            setState(() {
+                              _quantityController.text = '1';
+                              _selectedUnitType = 'Packs';
+                            });
                           }
                         },
                   style: IconButton.styleFrom(
@@ -705,8 +766,9 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
         selectedColor: AppTheme.accentNeonGreen,
         backgroundColor: AppTheme.surfaceCard,
         showCheckmark: false,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+        // FIX: Changed BorderRadius.circular to BorderRadius.all with Radius.circular
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
           side: BorderSide.none,
         ),
         onSelected: (_) => setState(() => _homeSubTab = tabKey),
@@ -859,7 +921,8 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
                           Icons.add_circle_rounded,
                           color: AppTheme.accentNeonGreen,
                         ),
-                        onPressed: () => trolley.addGroceryItem(itemName, "1"),
+                        onPressed: () =>
+                            trolley.addGroceryItem(itemName, "1 Packs"),
                       ),
                     ),
                   );
@@ -882,8 +945,6 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
         itemCount: trolley.dynamicCatalog.length,
         itemBuilder: (context, index) {
           final aisle = trolley.dynamicCatalog[index];
-
-          // Defend parameter parsing if hex string color keys arrive from backend
           final colorStr = aisle['color']?.toString() ?? '#00B0FF';
           final parsedColor = Color(
             int.parse(colorStr.replaceAll('#', '0xFF')),
@@ -934,100 +995,244 @@ class _InitialWorkspacePageState extends State<InitialWorkspacePage> {
         },
       );
     } else {
-      return trolley.items.isEmpty
-          ? const Center(
-              child: Text(
-                "Your active trolley runtime is empty.",
-                style: TextStyle(color: AppTheme.textMuted),
-              ),
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                key: const PageStorageKey('active_grid'),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 220,
-                  mainAxisExtent: 130,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: trolley.items.length,
+      // =========================================================================
+      // DYNAMIC ACTIVE RUN (DRAFT LIST vs FINALIZED AISLE MAP)
+      // =========================================================================
+      if (trolley.items.isEmpty) {
+        return const Center(
+          child: Text(
+            "Your active trolley runtime is empty.",
+            style: TextStyle(color: AppTheme.textMuted),
+          ),
+        );
+      }
+
+      if (!trolley.isListFinalized) {
+        // --- 1. DRAFT MODE: Simple Clean List Layout ---
+        final reversedItems = trolley.items.reversed.toList();
+        return Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: reversedItems.length,
                 itemBuilder: (context, index) {
-                  final item = trolley.items[index];
+                  final item = reversedItems[index];
                   return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       color: AppTheme.surfaceCard,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: AppTheme.surfaceCardLight,
                         width: 1,
                       ),
                     ),
-                    padding: const EdgeInsets.all(14),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: storeAccent.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.shopping_bag_outlined,
+                          color: storeAccent,
+                          size: 18,
+                        ),
+                      ),
+                      title: Text(
+                        item['standardizedName'] ?? item['originalText'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textLight,
+                        ),
+                      ),
+                      trailing: Text(
+                        item['quantity'] ?? '1 Packs',
+                        style: const TextStyle(
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => trolley.finalizeList(),
+                  icon: const Icon(Icons.auto_awesome_mosaic_rounded),
+                  label: const Text(
+                    'Finalize List & Sort into Aisles',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentNeonGreen,
+                    foregroundColor: AppTheme.darkBg,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      } else {
+        // --- 2. FINALIZED MODE: Premium Grouped Aisle Blocks ---
+        Map<String, List<dynamic>> groupedItems = {};
+        for (var item in trolley.items) {
+          String cat = item['category'] ?? 'General';
+          groupedItems.putIfAbsent(cat, () => []).add(item);
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 4.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Sorted Aisle Map',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textLight,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => trolley.editListDraft(),
+                    icon: const Icon(
+                      Icons.edit_note_rounded,
+                      size: 18,
+                      color: AppTheme.accentNeonGreen,
+                    ),
+                    label: const Text(
+                      'Edit Draft',
+                      style: TextStyle(
+                        color: AppTheme.accentNeonGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: groupedItems.keys.length,
+                itemBuilder: (context, index) {
+                  String category = groupedItems.keys.elementAt(index);
+                  List<dynamic> catItems = groupedItems[category]!;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceCard,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.surfaceCardLight,
+                        width: 1.5,
+                      ),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                        // Aisle Header Banner
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.surfaceCardLight,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(15),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.category_rounded,
+                                color: storeAccent,
+                                size: 18,
                               ),
-                              decoration: BoxDecoration(
-                                color: storeAccent.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                item['category'] ?? 'General',
-                                style: TextStyle(
-                                  color: storeAccent,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(width: 8),
+                              Text(
+                                category,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.textLight,
+                                  fontSize: 15,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              item['standardizedName'] ?? item['originalText'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: AppTheme.textLight,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Qty: ${item['quantity'] ?? "1"}',
-                              style: const TextStyle(
-                                color: AppTheme.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                        // Items Under Aisle
+                        ...catItems
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.circle,
+                                          size: 6,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          item['standardizedName'] ??
+                                              item['originalText'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      item['quantity'] ?? '1 Packs',
+                                      style: const TextStyle(
+                                        color: AppTheme.textMuted,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              color: AppTheme.accentNeonGreen,
-                              size: 20,
-                            ),
-                          ],
-                        ),
+                            )
+                            .toList(),
                       ],
                     ),
                   );
                 },
               ),
-            );
+            ),
+          ],
+        );
+      }
     }
   }
 }
@@ -1094,6 +1299,7 @@ class _TrolleyHistoryViewState extends State<TrolleyHistoryView> {
                     color: AppTheme.surfaceCard,
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  key: ValueKey(list['listId']),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -1340,7 +1546,6 @@ class _AuthViewState extends State<AuthView> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
       body: Center(
@@ -1396,7 +1601,7 @@ class _AuthViewState extends State<AuthView> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: auth.isLoading ? null : _submit,
+                    onPressed: _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.accentNeonGreen,
                       foregroundColor: AppTheme.darkBg,
@@ -1406,22 +1611,13 @@ class _AuthViewState extends State<AuthView> {
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: auth.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: AppTheme.darkBg,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            _isLoginMode ? 'Continue' : 'Create Account',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
+                    child: Text(
+                      _isLoginMode ? 'Continue' : 'Create Account',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
